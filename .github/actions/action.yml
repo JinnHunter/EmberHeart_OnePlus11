@@ -546,9 +546,6 @@ runs:
         echo "::group::Applying patches from wild kernels..."
         cd "$CONFIG/kernel_platform/common"
 
-        echo "Patching ptrace for 5.15!"
-        patch -p1 -F 3 < "../../../kernel_patches/gki_ptrace.patch"
-
         patch -p1 --forward < "../../../kernel_patches/common/mem_opt_prefetch.patch"
 
         sed -e 's/SYM_FUNC_START(__pi_memcmp)/SYM_FUNC_START_WEAK_PI(memcmp)/' -e 's/SYM_FUNC_END(__pi_memcmp)/SYM_FUNC_END_PI(memcmp)/' -e 's/SYM_FUNC_ALIAS_WEAK(memcmp, __pi_memcmp)/EXPORT_SYMBOL_NOKASAN(memcmp)/' "../../../kernel_patches/common/optimise_memcmp.patch" | patch -p1 --forward
