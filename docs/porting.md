@@ -4,11 +4,29 @@ This guide explains how to add support for a new OnePlus device (e.g., OnePlus 1
 
 First star this repo, create a fork and follow the instructions given below.
 
-## 1. Prerequisites
+## 0. Prerequisites
 To port a new device, you need three pieces of information from the [OnePlusOSS GitHub](https://github.com/OnePlusOSS):
 1.  **Device Model Code** (e.g., `OP12`, `OPOpen`).
 2.  **SoC Codename** (e.g., `kalama` for SD 8 Gen 2, `pineapple` for SD 8 Gen 3).
 3.  **Source Branch** and **Manifest XML** names.
+
+and the `boot.img` (doesent matter if it has the stock kernel or not or the os version of the image) file of the device.
+
+## 1. Setup Stock Boot Image
+The workflow automatically creates a flashable boot.img by patching the stock Oneplus boot image. You must provide the stock boot.img for your specific device. (OS version doesn't matter `atleast in the case of OP11` )
+
+* Use [OTA Dumper](https://github.com/rcmiku/Payload-Dumper-Compose/releases/latest) to extract the boot.img file.
+* Then use apps like Mt Manager or Zarchiver or any other app of tour choice to create a zip of the boot.img.
+* For compression method use `store` or `no compression`
+* Then delete the zip in the repo and upload yours
+
+> [!NOTE]
+> If you're building for multiple devices you can create a folder with the model name inside `tools` folder like `OP11` or `OP12` and store their respective images there.
+> Also, dont forget to update [this line](https://github.com/nullptr-t-oss/EmberHeart_OnePlus11/blob/00b98e58f75b790755eb7261ed8b222107592380/.github/actions/action.yml#L948) in the workflow.
+> You may update it to this format :
+> ```
+> wget "https://github.com/${GITHUB_REPOSITORY}/raw/main/tools/${OP_MODEL}/boot.zip"
+> ```
 
 ## 2. Create the Configuration File
 The workflow automatically scans the `configs/` directory. To add a device, simply create a new `.json` file in that folder (e.g., `configs/OP12.json`).
