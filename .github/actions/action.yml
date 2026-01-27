@@ -945,7 +945,7 @@ runs:
         cd "$GITHUB_WORKSPACE"
         mkdir -p boot
         # Download stock boot image
-        wget https://github.com/nullptr-t-oss/EmberHeart_OnePlus11/raw/refs/heads/main/tools/boot.zip
+        wget https://github.com/${GITHUB_REPOSITORY}/raw/refs/heads/main/tools/boot.zip
         unzip boot.zip
         # Download magiskboot binary
         wget https://github.com/magojohnji/magiskboot-linux/raw/refs/heads/main/x86_64/magiskboot
