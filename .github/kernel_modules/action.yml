@@ -314,24 +314,29 @@ runs:
         KERNEL_PLATFORM="$GITHUB_WORKSPACE/$CONFIG/kernel_platform"
         MSM="$KERNEL_PLATFORM/msm-kernel"
         OUT=out
+
         export PATH="${CLANG_BIN_PATH}:$PATH" 
         export PATH="/usr/lib/ccache:$PATH"
 
         cd "$MSM"
 
+        make ARCH=arm64 mrproper
+        mkdir -p "$OUT"
+
         # Merge defconfig fragments from vendor/kalama_GKI.config
-        ./scripts/kconfig/merge_config.sh -m arch/arm64/configs/gki_defconfig arch/arm64/configs/vendor/${OP_SOC}_GKI.config
+        ./scripts/kconfig/merge_config.sh -O "$OUT" -m arch/arm64/configs/gki_defconfig arch/arm64/configs/vendor/${OP_SOC}_GKI.config
 
         # Thin LTO
-        echo "CONFIG_LTO_CLANG_THIN=y" >> ./arch/arm64/configs/gki_defconfig                                                                            
-        echo "CONFIG_LTO_CLANG=y" >> ./arch/arm64/configs/gki_defconfig
-        echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "./arch/arm64/configs/gki_defconfig"
-        echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3=n" >> "./arch/arm64/configs/gki_defconfig"
+        ./scripts/config --file "$OUT/.config" \
+            --enable CONFIG_LTO_CLANG_THIN \
+            --enable CONFIG_LTO_CLANG \
+            --enable CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE \
+            --disable CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3
 
         INSTALL_MOD_PATH="$MSM/out"
 
         echo "Building kernel modules..."
-        make ARCH=arm64 LLVM=1 O=out gki_defconfig   
+        make ARCH=arm64 LLVM=1 O=out olddefconfig
         make -j$(nproc --all) ARCH=arm64 LLVM=1 O=out CC="ccache clang" modules       
         make -j$(nproc --all) ARCH=arm64 LLVM=1 O=out INSTALL_MOD_PATH=$INSTALL_MOD_PATH modules_install
 
