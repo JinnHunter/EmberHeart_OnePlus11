@@ -1,4 +1,4 @@
-name: Build OnePlus 11 EmberHeart Kernel
+name: Build OnePlus EmberHeart Kernel
 
 permissions:
   contents: write
@@ -525,6 +525,7 @@ runs:
         echo "::endgroup::"
 
     - name: Add my kernel patches to common kernel
+      if: env.OP_SOC == 'kalama'
       shell: bash
       run: |
         set -euo pipefail
@@ -540,6 +541,7 @@ runs:
         echo "::endgroup::"
 
     - name: Add other kernel patches to common kernel
+      if: env.OP_SOC == 'kalama'
       shell: bash
       run: |
         set -euo pipefail

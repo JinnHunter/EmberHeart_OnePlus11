@@ -1,4 +1,4 @@
-name: Build OnePlus 11 kernel modules
+name: Build OnePlus kernel modules
 
 permissions:
   contents: write
@@ -320,7 +320,7 @@ runs:
         cd "$MSM"
 
         # Merge defconfig fragments from vendor/kalama_GKI.config
-        cat arch/arm64/configs/vendor/kalama_GKI.config >> ./arch/arm64/configs/gki_defconfig
+        ./scripts/kconfig/merge_config.sh -m arch/arm64/configs/gki_defconfig arch/arm64/configs/vendor/${OP_SOC}_GKI.config
 
         # Thin LTO
         echo "CONFIG_LTO_CLANG_THIN=y" >> ./arch/arm64/configs/gki_defconfig                                                                            
