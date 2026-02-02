@@ -51,6 +51,7 @@ on:
         type: choice
         options:
           - OP11
+          - OP10-Pro
         default: OP11
 
 jobs:
@@ -76,12 +77,12 @@ jobs:
             model=$(basename "$file" .json)
             models+=("$model")
           done < <(find configs/ -name "*.json" -print0)
-        
+          
           if [ ${#models[@]} -eq 0 ]; then
             echo "Error: No config files found in configs/ directory!"
             exit 1
           fi
-        
+          
           echo "[" > matrix.json
           for i in "${!models[@]}"; do
             model="${models[$i]}"
