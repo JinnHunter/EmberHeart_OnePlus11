@@ -10,7 +10,7 @@
   "manifest_fast_build_oos15_modules": "null",
   "manifest_oos16": "null",
   "manifest_oos16_modules": "null",
-  "android_version": "android12",
+  "android_version": "android14",
   "kernel_version": "5.10",
   "hmbird": false
 }
