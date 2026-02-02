@@ -1,0 +1,16 @@
+{
+  "model": "OP10-Pro",
+  "soc": "waipio",
+  "branch": "oneplus/sm8450",
+  "manifest_oos14": "oneplus_10_pro_u.xml",
+  "manifest_oos14_modules": "oneplus_10_pro_u.xml",
+  "manifest_oos15": "oneplus_10_pro_v.xml",
+  "manifest_oos15_modules": "oneplus_10_pro_v.xml",
+  "manifest_fast_build_oos15": "null",
+  "manifest_fast_build_oos15_modules": "null",
+  "manifest_oos16": "null",
+  "manifest_oos16_modules": "null",
+  "android_version": "android12",
+  "kernel_version": "5.10",
+  "hmbird": false
+}
