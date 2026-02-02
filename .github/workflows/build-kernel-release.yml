@@ -109,7 +109,7 @@ jobs:
   build-kernel:
     name: Build ${{ matrix.model }} EmberHeart kernel
     needs: set-op-model
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
@@ -137,7 +137,7 @@ jobs:
   build-kernel-modules:
     name: Build ${{ matrix.model }} Kernel Modules
     needs: set-op-model
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
@@ -162,7 +162,7 @@ jobs:
     needs:
       - build-kernel
       - build-kernel-modules
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if: ${{ inputs.release_type != 'none' }}
     env:
       REPO_OWNER: ${{ github.repository_owner }}
