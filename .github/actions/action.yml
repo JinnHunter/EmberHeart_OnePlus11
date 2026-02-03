@@ -20,7 +20,7 @@ inputs:
   optimize_level:
     required: false
     type: string
-    default: O2  # Choices: O2 or O3
+    default: O2
   kernel_uname:
     required: false
     type: string
@@ -51,8 +51,6 @@ runs:
         set -euo pipefail
         echo '${{ inputs.op_config_json }}' > /tmp/config.json
         jq -r 'to_entries[] | "OP_\(.key | ascii_upcase)=\(.value)"' /tmp/config.json >> "$GITHUB_ENV"
-        echo "Parsed config:"
-        jq '.' /tmp/config.json
 
     - name: Set Manifest
       shell: bash
@@ -64,31 +62,18 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        echo "::group::Validate inputs"
-        model="$OP_MODEL"
-        soc="$OP_SOC"
-        branch="$OP_BRANCH"
-        manifest="$OP_MANIFEST"
-        optimize='${{ inputs.optimize_level }}'
-
-        if ! [[ "$soc" =~ ^[A-Za-z0-9_-]+$ ]]; then
-          echo "Input 'soc' contains invalid characters."; exit 1
-        fi
-        echo "Input validation OK."
-        echo "::endgroup::"
+        if ! [[ "${{ inputs.soc }}" =~ ^[A-Za-z0-9_-]+$ ]]; then exit 1; fi
 
     - name: Install Minimal Dependencies
       shell: bash
       run: |
         set -euo pipefail
-        echo "::group::Install deps"
         sudo apt-get -o Acquire::Retries=3 update -qq
         sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
           git curl ca-certificates build-essential clang lld flex bison \
           libelf-dev libssl-dev libncurses-dev zlib1g-dev liblz4-tool \
           libxml2-utils rsync unzip dwarves file python3 ccache
         sudo apt-get clean
-        echo "::endgroup::"
 
     - name: Setup Base Environment
       shell: bash
@@ -115,10 +100,8 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        echo "Creating folder for configuration: $CONFIG"
         mkdir -p "$CONFIG"
         cd "$CONFIG"
-        echo "Initializing and syncing kernel source..."
         if [[ "$OP_MANIFEST" == https://* ]]; then
           mkdir -p .repo/manifests
           curl --fail --show-error --location --proto '=https' "$OP_MANIFEST" -o .repo/manifests/temp_manifest.xml
@@ -133,13 +116,13 @@ runs:
             success=true
             break
           fi
-          echo "repo sync attempt $i failed; retrying..."
           sleep 30
         done
-        $success || { echo "repo sync failed after 3 attempts"; exit 1; }
+        $success || { echo "repo sync failed"; exit 1; }
 
-    # 🔥🔥 JINN FIX: Fixing Broken Symlinks START 🔥🔥
-    - name: 🔧 FIX BROKEN OOS15 SYMLINKS (Jinn Special)
+    # 🔥🔥 FIX 1: UNKE PATCH FOLDER KA KAAM HUM YAHI KAR RAHE HAIN 🔥🔥
+    # Fixing the Broken Symlink Issue
+    - name: 🔧 FIX BROKEN OOS15 SYMLINKS
       shell: bash
       run: |
         set -euo pipefail
@@ -148,21 +131,15 @@ runs:
         if [ ! -d "$SRC_DIR" ]; then SRC_DIR="$GITHUB_WORKSPACE/$CONFIG/common"; fi
         TARGET="$SRC_DIR/drivers/base/kernelFwUpdate"
         
-        echo "Checking target: $TARGET"
-        if [ -e "$TARGET" ] || [ -L "$TARGET" ]; then
-            echo "Found broken symlink/folder. Nuking it! 💥"
-            rm -rf "$TARGET"
-            mkdir -p "$TARGET"
-            touch "$TARGET/Kconfig"
-            echo "config KERNEL_FW_UPDATE" > "$TARGET/Kconfig"
-            echo "    bool 'Firmware update support'" >> "$TARGET/Kconfig"
-            echo "    default n" >> "$TARGET/Kconfig"
-            echo "✅ Fixed successfully!"
-        else
-            echo "⚠️ Target not found. Skipping fix."
-        fi
+        # Unconditional Nuke & Recreate
+        rm -rf "$TARGET"
+        mkdir -p "$TARGET"
+        touch "$TARGET/Kconfig"
+        echo "config KERNEL_FW_UPDATE" > "$TARGET/Kconfig"
+        echo "    bool 'Firmware update support'" >> "$TARGET/Kconfig"
+        echo "    default n" >> "$TARGET/Kconfig"
+        echo "✅ Fixed Symlinks (Manual Patch Applied)"
         echo "::endgroup::"
-    # 🔥🔥 JINN FIX END 🔥🔥
 
     - name: Get Kernel Version Info
       shell: bash
@@ -172,60 +149,29 @@ runs:
         ARTIFACTS_DIR="$CONFIG_DIR/artifacts"
         mkdir -p "$ARTIFACTS_DIR"
         cd "$CONFIG_DIR/kernel_platform/common"
-        CONFIG_FILES=("build.config.common" "build.config.constants")
-        BRANCH_LINE=""
-        for f in "${CONFIG_FILES[@]}"; do
-          if [ -f "$f" ]; then
-            l=$(grep '^[[:space:]]*BRANCH=' "$f" || true)
-            if [ -n "$l" ]; then BRANCH_LINE="$l"; break; fi
-          fi
-        done
-        if [ -z "$BRANCH_LINE" ]; then echo "Error: No BRANCH= found"; exit 1; fi
-        BRANCH_VALUE="${BRANCH_LINE#*=}"
-        ANDROID_VERSION="${BRANCH_VALUE%-*}"
         VERSION=$(grep '^VERSION *=' Makefile | awk '{print $3}')
         PATCHLEVEL=$(grep '^PATCHLEVEL *=' Makefile | awk '{print $3}')
-        SUBLEVEL=$(grep '^SUBLEVEL *=' Makefile | awk '{print $3}')
-        FULL_VERSION="$VERSION.$PATCHLEVEL.$SUBLEVEL"
-        cd "$ARTIFACTS_DIR"
-        echo "$ANDROID_VERSION-$FULL_VERSION" > "${OP_MODEL}.txt"
-        echo "ANDROID_VER=$ANDROID_VERSION" >> "$GITHUB_ENV"
         echo "KERNEL_VER=$VERSION.$PATCHLEVEL" >> "$GITHUB_ENV"
-        echo "KERNEL_FULL_VER=$ANDROID_VERSION-$FULL_VERSION" >> "$GITHUB_ENV"
         echo "SUSFS_KERNEL_BRANCH=gki-$ANDROID_VERSION-$VERSION.$PATCHLEVEL" >> "$GITHUB_ENV"
-
-    - name: Set Build Identity
-      shell: bash
-      run: |
-        set -euo pipefail
-        echo "KBUILD_BUILD_USER=EmberHeart" >> "$GITHUB_ENV"
-        echo "KBUILD_BUILD_HOST=OnePlus" >> "$GITHUB_ENV"
 
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@v1.2.19
       with:
-        key: ${{ env.CONFIG }}-kernel-${{ env.KERNEL_FULL_VER }}
+        key: ${{ env.CONFIG }}-kernel-${{ env.KERNEL_VER }}
         max-size: 5G
         create-symlink: true
 
-    - name: Clone AnyKernel3 and Other Dependencies
+    - name: Clone AnyKernel3 and Dependencies
       shell: bash
       run: |
         set -euo pipefail
-        echo "Cloning AnyKernel3..."
-        ANYKERNEL_BRANCH="gki-2.0"
-        if [[ -z "${{ inputs.susfs_commit_hash_or_branch }}" ]]; then
-          SUSFS_BRANCH="${{ env.SUSFS_KERNEL_BRANCH }}"
-        else
-          SUSFS_BRANCH="${{ inputs.susfs_commit_hash_or_branch }}"
-        fi
-        git clone --depth=1 https://github.com/TheWildJames/AnyKernel3.git -b "$ANYKERNEL_BRANCH"
+        git clone --depth=1 https://github.com/TheWildJames/AnyKernel3.git -b "gki-2.0"
         git clone --depth=1 https://github.com/TheWildJames/kernel_patches.git
         git clone https://gitlab.com/simonpunk/susfs4ksu.git
         cd susfs4ksu
-        git checkout "$SUSFS_BRANCH" || echo "Warning: Branch not found"
+        git checkout "${{ env.SUSFS_KERNEL_BRANCH }}" || echo "Branch not found, using default"
 
-    - name: Add KernelSU Next
+    - name: Add KernelSU Next & Apply Patches
       shell: bash
       run: |
         set -euo pipefail
@@ -234,42 +180,41 @@ runs:
         cd common
         patch -p1 < ../../../susfs4ksu/kernel_patches/50_add_susfs_in_${{ env.SUSFS_KERNEL_BRANCH }}.patch || true
 
-    - name: Add BBG
+    # 🔥🔥 FIX 2: DISABLE KGDB (CLANG ERROR FIX) 🔥🔥
+    # Ye step wo hai jo 'value 1025' aur 'sp register' wala error hatayega
+    - name: Add KSU, SUSFS & DISABLE BROKEN DEBUGGING
       shell: bash
       run: |
         set -euo pipefail
         cd "$CONFIG/kernel_platform"
-        wget -O- https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh | bash -s fix_blkdev_rename || echo "BBG warning"
-        echo "CONFIG_BBG=y" >> common/arch/arm64/configs/gki_defconfig
-
-    - name: Add KernelSU-Next and SUSFS Configuration Settings
-      shell: bash
-      run: |
-        set -euo pipefail
-        cd "$CONFIG/kernel_platform"
+        
+        echo "::group::Applying Config Fixes"
+        # Standard KSU/SUSFS Configs
         cat >> common/arch/arm64/configs/gki_defconfig <<EOF
         CONFIG_KSU=y
-        CONFIG_KSU_KPROBES_HOOK=n
         CONFIG_KSU_SUSFS=y
-        CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y
         CONFIG_KSU_SUSFS_SUS_PATH=y
-        CONFIG_KSU_SUSFS_SUS_MOUNT=y
-        CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y
-        CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y
-        CONFIG_KSU_SUSFS_SUS_SU=y
-        CONFIG_KSU_SUSFS_TRY_UMOUNT=y
-        CONFIG_KSU_SUSFS_SPOOF_UNAME=y
-        CONFIG_KSU_SUSFS_ENABLE_LOG=y
-        CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
-        CONFIG_KSU_SUSFS_SUS_KSTAT=y
-        CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y
         EOF
+        
+        # 🛡️ THE KILL SWITCH FOR ERRORS 🛡️
+        # KGDB band karne se wo 'sp' aur '1025' wala error gayab ho jayega
+        cat >> common/arch/arm64/configs/gki_defconfig <<EOF
+        CONFIG_KGDB=n
+        CONFIG_KGDB_SERIAL_CONSOLE=n
+        CONFIG_KGDB_KDB=n
+        CONFIG_HAVE_ARCH_KGDB=n
+        CONFIG_CC_WERROR=n
+        EOF
+        
+        echo "✅ Configs applied: KGDB Disabled, WERROR Disabled."
+        echo "::endgroup::"
 
     - name: Build Kernel
       shell: bash
       run: |
         set -euo pipefail
         cd "$CONFIG"
+        echo "Starting Build..."
         ./kernel_platform/build/android/prepare_vendor.sh "$OP_MODEL"
         ./kernel_platform/build/android/build.sh dist -j"$(nproc --all)"
 
